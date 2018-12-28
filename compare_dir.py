@@ -10,6 +10,15 @@ def get_create_timestamp(filename):
     return datetime.datetime.fromtimestamp(t).date().strftime("%Y-%m-%d")
 
 
+def get_strdate(t):
+    return datetime.datetime.fromtimestamp(t).date().strftime("%Y-%m-%d")
+
+
+def get_file_stat(filename):
+    stat = os.stat(filename)
+    return stat
+
+
 def print_diff_files(filename, dcmp, remove_file=None):
     print("========comparing: left: {} == right: {} ======".format(
         dcmp.left, dcmp.right))
@@ -17,12 +26,25 @@ def print_diff_files(filename, dcmp, remove_file=None):
 
     file = open(filename, "w")
     for fname in dcmp.common_files:
-        full_fname = join(dcmp.right, fname)
-        file_date = get_create_timestamp(full_fname)
-        if file_date == '2018-12-27' or file_date == '2018-12-28':
-            msg = f"Delete: {fname},{file_date} \n"
+        left_fname = join(dcmp.left, fname)
+        left_fname_stat = get_file_stat(left_fname)
+
+        right_fname = join(dcmp.right, fname)
+        right_fname_stat = get_file_stat(right_fname)
+
+        file_date = get_create_timestamp(right_fname)
+
+        print("rightfile:{};{}".format(file_date,
+                                       get_strdate(right_fname_stat.st_ctime)))
+
+        # if file_date == '2018-12-27' or file_date == '2018-12-28':
+        #     msg = f"Delete: {fname};LEFT:{left_fname_stat.st_size};RIGHT:{left_fname_stat.st_size} \n"
+        #     if remove_file is True:
+        #         os.remove(right_fname)
+        if left_fname_stat.st_size == right_fname_stat.st_size and get_strdate(left_fname_stat.st_ctime) == get_strdate(right_fname_stat.st_ctime):
+            msg = f"SameFile-Delete:{fname};LEFT:{left_fname_stat.st_size};RIGHT:{right_fname_stat.st_size} \n"
             if remove_file is True:
-                os.remove(full_fname)
+                os.remove(right_fname)
         else:
             msg = f"Keep: {fname},{file_date} \n"
         file.write(msg)
@@ -52,5 +74,5 @@ def print_diff_files(filename, dcmp, remove_file=None):
 
 
 dcmp = dircmp('/Volumes/library/mobile/agnes',
-              '/Volumes/library/mobile/erwynsan')
-print_diff_files("compare_files.txt", dcmp)
+              '/Volumes/library/mobile/agnes-iphone-6s')
+print_diff_files("compare_files.txt", dcmp, remove_file=False)
