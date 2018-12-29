@@ -3,6 +3,7 @@ import os
 import shutil
 from os.path import isfile, join
 import datetime
+import os.path
 
 
 def get_create_timestamp(filename):
@@ -19,6 +20,23 @@ def get_file_stat(filename):
     return stat
 
 
+def compare_file_size(file, msg_info, left_fname, right_fname):
+    match = False
+    r_fname = os.path.basename(right_fname)
+    l_fname = os.path.basename(left_fname)
+
+    right_fname_stat = get_file_stat(right_fname)
+    left_fname_stat = get_file_stat(left_fname)
+
+    if left_fname_stat.st_size == right_fname_stat.st_size:
+        match = True
+        msg = f"SameFile{msg_info}-Delete:{l_fname}/{r_fname};LEFT:{left_fname_stat.st_size};RIGHT:{right_fname_stat.st_size} \n"
+        print(msg)
+        file.write(msg)
+
+    return match
+
+
 def print_diff_files(filename, dcmp, remove_file=None):
     print("========comparing: left: {} == right: {} ======".format(
         dcmp.left, dcmp.right))
@@ -32,11 +50,6 @@ def print_diff_files(filename, dcmp, remove_file=None):
         right_fname = join(dcmp.right, fname)
         right_fname_stat = get_file_stat(right_fname)
 
-        file_date = get_create_timestamp(right_fname)
-
-        print("rightfile:{};{}".format(file_date,
-                                       get_strdate(right_fname_stat.st_ctime)))
-
         # if file_date == '2018-12-27' or file_date == '2018-12-28':
         #     msg = f"Delete: {fname};LEFT:{left_fname_stat.st_size};RIGHT:{left_fname_stat.st_size} \n"
         #     if remove_file is True:
@@ -46,6 +59,7 @@ def print_diff_files(filename, dcmp, remove_file=None):
             if remove_file is True:
                 os.remove(right_fname)
         else:
+            file_date = get_create_timestamp(right_fname)
             msg = f"Keep: {fname},{file_date} \n"
         file.write(msg)
 
@@ -64,9 +78,37 @@ def print_diff_files(filename, dcmp, remove_file=None):
     #             shutil.copy2(src_filename, dest_dir)
 
     for fname in dcmp.right_only:
-        file_date = get_create_timestamp(join(dcmp.right, fname))
-        msg = f"RightOnly: {fname},{file_date} \n"
-        file.write(msg)
+        chk_file = False
+        filename, file_ext = os.path.splitext(fname)
+
+        right_fname = join(dcmp.right, fname)
+        left_fname = join(dcmp.left, f"{filename}{file_ext.lower()}")
+        if os.path.exists(left_fname):
+            msg_info = "CAP"
+            chk_file = True
+
+        elif "(" in fname:
+            # get string before (  and the extension
+            fname = fname[:fname.index('(')]
+            left_fname = join(dcmp.left, fname + file_ext)
+            lower_left_fname = join(dcmp.left, fname + file_ext.lower())
+            if os.path.exists(left_fname):
+                msg_info = "VER"
+                chk_file = True
+            elif os.path.exists(lower_left_fname):
+                msg_info = "CAP_VER"
+                left_fname = lower_left_fname
+                chk_file = True
+
+        if chk_file:
+            match = compare_file_size(file, msg_info, left_fname, right_fname)
+            if match and remove_file:
+                file.write("removing {} ... \n".format(right_fname))
+                os.remove(right_fname)
+        else:
+            file_date = get_create_timestamp(right_fname)
+            msg = f"RightOnly: {fname},{file_date} \n"
+            file.write(msg)
 
     #     for sub_dcmp in dcmp.subdirs.values():
     #         print_diff_files(sub_dcmp)
@@ -74,5 +116,5 @@ def print_diff_files(filename, dcmp, remove_file=None):
 
 
 dcmp = dircmp('/Volumes/library/mobile/agnes',
-              '/Volumes/library/mobile/agnes-iphone-6s')
+              '/Volumes/library/mobile/erwynsan')
 print_diff_files("compare_files.txt", dcmp, remove_file=False)
