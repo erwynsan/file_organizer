@@ -19,7 +19,7 @@ def walk_files(path):
             files.append(join(dirpath, fname))
 
 
-def parse_path(path):
+def parse_path(path, target_path=None):
     global fcount
     print("--organizing " + path + " ...")
     for (dirpath, dirnames, filenames) in os.walk(path):
@@ -48,7 +48,7 @@ def parse_path(path):
             finally:
                 pass
 
-            target_dir = join(TARGET_PATH, target_dt.isoformat())
+            target_dir = join(target_path, target_dt.isoformat())
             # and not os.path.exists(target_dir):
             if not os.path.exists(target_dir):
                 os.mkdir(target_dir)
@@ -80,7 +80,7 @@ def parse_path(path):
 fcount = 0
 
 #TARGET_PATH = "/Volumes/pictures/OneDrive_reorg"
-TARGET_PATH = "/Volumes/library/file_organizer"
+#TARGET_PATH = "/Volumes/library/file_organizer/erwynSE"
 
 # parse_path("/Volumes/pictures/OneDrive/2011")
 # parse_path("/Volumes/pictures/OneDrive/2012")
@@ -90,7 +90,8 @@ TARGET_PATH = "/Volumes/library/file_organizer"
 # parse_path("/Volumes/pictures/OneDrive/2016")
 # parse_path("/Volumes/pictures/OneDrive/0000_UnknownDate")
 
-parse_path("/Volumes/library/mobile/erwynSE")
+parse_path("/Volumes/library/mobile/erwynSE",
+           "/Volumes/library/file_organizer/erwynSE")
 
 
 print("copied {} files".format(fcount))
