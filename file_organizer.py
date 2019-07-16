@@ -19,7 +19,7 @@ def walk_files(path):
             files.append(join(dirpath, fname))
 
 
-def parse_path(path, target_path=None):
+def parse_path(path, target_path):
     global fcount
     print("--organizing " + path + " ...")
     for (dirpath, dirnames, filenames) in os.walk(path):
