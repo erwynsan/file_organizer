@@ -2,10 +2,16 @@ from filecmp import dircmp
 import os
 import shutil
 import datetime
+from exif import Image
 
 from os import listdir
 from os.path import isfile, join
 
+def get_exif_datetime(filename: str):
+    with open(filename, 'rb') as image_file:
+        my_image = Image(image_file)
+    date_obj = datetime.datetime.strptime(my_image.datetime, '%Y:%m:%d %H:%M:%S')
+    print(f"get_exif_datetime: {date_obj}")
 
 def get_create_timestamp(filename):
     t = os.path.getctime(filename)
@@ -33,6 +39,11 @@ def parse_path(path, target_path, yr_limit=None, tag=None):
         for fname in filenames:
             src_file = join(dirpath, fname)
 
+            print(src_file)
+            try: 
+                get_exif_datetime(src_file)
+            except:
+                pass
             # parse filename, separator _;
             target_dt = None
             try:
@@ -60,22 +71,24 @@ def parse_path(path, target_path, yr_limit=None, tag=None):
                 full_target_path = join(
                     target_dir, os.path.basename(src_file))
 
-            # check if file already exists in target directory, skip
-            if not os.path.exists(full_target_path):
-                fcount += 1
+            fcount += 1
 
-                try:
-                    print("copying " + src_file + " to " + full_target_path)
-                    shutil.copy2(src_file, full_target_path)
-                except Exception as ex:
-                    print("Error copying " + src_file + ".  Retrying..")
-                    shutil.copy2(src_file, full_target_path)
-            else:
-                print(src_file + " already exists in " + full_target_path)
+            # check if file already exists in target directory, skip
+            # if not os.path.exists(full_target_path):
+            #     fcount += 1
+
+            #     try:
+            #         print("copying " + src_file + " to " + full_target_path)
+            #         shutil.copy2(src_file, full_target_path)
+            #     except Exception as ex:
+            #         print("Error copying " + src_file + ".  Retrying..")
+            #         shutil.copy2(src_file, full_target_path)
+            # else:
+            #     print(src_file + " already exists in " + full_target_path)
             print("file count: {} ".format(fcount))
 
-            # if fcount >= 10:
-            #     break
+            if fcount >= 10:
+                break
 
         # ************
         # main
@@ -90,25 +103,25 @@ def get_tag(path):
 
 fcount = 0
 
-yr_limit = '2017'
-target_path = f'/Volumes/pictures/{yr_limit}/mobile'
+yr_limit = '2020'
+target_path = f'/Volumes/pictures/2021/wdmycloud'
 
-source_path = '/Volumes/library/mobile/agnes-x'
-tag = get_tag(source_path)
-parse_path(source_path,
-           target_path=target_path,
-           yr_limit=yr_limit,
-           tag=tag)
+# source_path = '/Volumes/library/mobile/agnes-x'
+# tag = get_tag(source_path)
+# parse_path(source_path,
+#            target_path=target_path,
+#            yr_limit=yr_limit,
+#            tag=tag)
 
-source_path = '/Volumes/library/mobile/sofia'
-tag = get_tag(source_path)
-parse_path(source_path,
-           target_path=target_path,
-           yr_limit=yr_limit,
-           tag=tag)
+# source_path = '/Volumes/library/mobile/sofia'
+# tag = get_tag(source_path)
+# parse_path(source_path,
+#            target_path=target_path,
+#            yr_limit=yr_limit,
+#            tag=tag)
 
-source_path = '/Volumes/library/mobile/erwynSE'
-tag = get_tag(source_path)
+source_path = '/Volumes/mobile/erwyn6s Camera Roll Backup'
+tag = 'erwyn6s' #get_tag(source_path)
 parse_path(source_path,
            target_path=target_path,
            yr_limit=yr_limit,
