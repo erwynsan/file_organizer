@@ -2,16 +2,35 @@ from filecmp import dircmp
 import os
 import shutil
 import datetime
-from exif import Image
+import exiftool
+import json
 
 from os import listdir
 from os.path import isfile, join
 
-def get_exif_datetime(filename: str):
-    with open(filename, 'rb') as image_file:
-        my_image = Image(image_file)
-    date_obj = datetime.datetime.strptime(my_image.datetime, '%Y:%m:%d %H:%M:%S')
-    print(f"get_exif_datetime: {date_obj}")
+max=200
+def get_metadata(filename: str):
+    with exiftool.ExifTool() as et:
+        metadata = et.get_metadata(filename)
+
+        file_ext = os.path.splitext(filename)[1]
+        if file_ext in [".PNG"]:
+            create_date = metadata.get("EXIF:DateTimeOriginal")
+        elif file_ext in [".JPEG"]:
+            create_date = metadata.get("ICC_Profile:ProfileDateTime")
+        elif file_ext in [".MOV", ".MP4"]:
+            create_date = metadata.get("QuickTime:TrackCreateDate")
+        else:    
+            create_date = metadata.get("EXIF:CreateDate")
+            if not create_date:
+                #remove -
+                create_date = str.split(metadata.get("File:FileInodeChangeDate"), '-')[0]
+
+        try:
+            date_obj = datetime.datetime.strptime(create_date, '%Y:%m:%d %H:%M:%S')
+        except:
+            print(f"{filename}:metadata: {json.dumps(metadata)}")
+        print(f"{filename}:create_date: {date_obj}")
 
 def get_create_timestamp(filename):
     t = os.path.getctime(filename)
@@ -41,9 +60,9 @@ def parse_path(path, target_path, yr_limit=None, tag=None):
 
             print(src_file)
             try: 
-                get_exif_datetime(src_file)
-            except:
-                pass
+                get_metadata(src_file)
+            except Exception as ex:
+                print("exception {} {}".format(ex, src_file))                
             # parse filename, separator _;
             target_dt = None
             try:
@@ -52,24 +71,24 @@ def parse_path(path, target_path, yr_limit=None, tag=None):
                 print("exception {} {}".format(ex, src_file))
                 continue
 
-            if yr_limit:
-                if str(target_dt.year) != yr_limit:
-                    continue
+            # if yr_limit:
+            #     if str(target_dt.year) != yr_limit:
+            #         continue
 
-            target_dir = join(target_path, target_dt.isoformat())
-            # and not os.path.exists(target_dir):
-            if not os.path.exists(target_dir):
-                os.makedirs(target_dir, exist_ok=True)
+            # target_dir = join(target_path, target_dt.isoformat())
+            # # and not os.path.exists(target_dir):
+            # if not os.path.exists(target_dir):
+            #     os.makedirs(target_dir, exist_ok=True)
 
-            checkFile = join(target_dir, os.path.basename(src_file))
-            # print("check file: " + checkFile)
+            # checkFile = join(target_dir, os.path.basename(src_file))
+            # # print("check file: " + checkFile)
 
-            if tag:
-                full_target_path = join(
-                    target_dir, tag + '_' + os.path.basename(src_file))
-            else:
-                full_target_path = join(
-                    target_dir, os.path.basename(src_file))
+            # if tag:
+            #     full_target_path = join(
+            #         target_dir, tag + '_' + os.path.basename(src_file))
+            # else:
+            #     full_target_path = join(
+            #         target_dir, os.path.basename(src_file))
 
             fcount += 1
 
@@ -87,9 +106,11 @@ def parse_path(path, target_path, yr_limit=None, tag=None):
             #     print(src_file + " already exists in " + full_target_path)
             print("file count: {} ".format(fcount))
 
-            if fcount >= 10:
+            if fcount >= max:
                 break
 
+        if fcount >= max:
+            break
         # ************
         # main
 

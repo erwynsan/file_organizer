@@ -9,6 +9,11 @@ pytest = "*"
 [packages]
 flask = "==0.12.1"
 numpy = "*"
+pillow = "*"
+pillow_heif = "*"
+piexif = "*"
+tinytag = "*"
+PyExifTool = "*"
 requests = {git = "https://github.com/requests/requests.git", editable = true}
 
 [requires]
