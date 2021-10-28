@@ -1,56 +1,36 @@
 from filecmp import dircmp
 import os
 import shutil
-import datetime
-import exiftool
-import json
+import logging
+import metadata
+import sys
 
-from os import listdir
 from os.path import isfile, join
 
-max=200
-def get_metadata(filename: str):
-    with exiftool.ExifTool() as et:
-        metadata = et.get_metadata(filename)
+max=10
+files_copied = 0
+files_no_metadata = 0
+list_unknown_date = list()
 
-        file_ext = os.path.splitext(filename)[1]
-        if file_ext in [".PNG"]:
-            create_date = metadata.get("EXIF:DateTimeOriginal")
-        elif file_ext in [".JPEG"]:
-            create_date = metadata.get("ICC_Profile:ProfileDateTime")
-        elif file_ext in [".MOV", ".MP4"]:
-            create_date = metadata.get("QuickTime:TrackCreateDate")
-        else:    
-            create_date = metadata.get("EXIF:CreateDate")
-            if not create_date:
-                #remove -
-                create_date = str.split(metadata.get("File:FileInodeChangeDate"), '-')[0]
+logfile='./app.log'
+logging.basicConfig(
+    format='[%(asctime)s] %(levelname)-8s %(name)-12s %(message)s', 
+    level=logging.DEBUG,
+    handlers=[
+        logging.FileHandler(logfile),
+        logging.StreamHandler(sys.stdout),
+    ])
 
-        try:
-            date_obj = datetime.datetime.strptime(create_date, '%Y:%m:%d %H:%M:%S')
-        except:
-            print(f"{filename}:metadata: {json.dumps(metadata)}")
-        print(f"{filename}:create_date: {date_obj}")
+log = logging.getLogger(__name__)
 
-def get_create_timestamp(filename):
-    t = os.path.getctime(filename)
-    return datetime.datetime.fromtimestamp(t).date()
-
-
-def walk_files(path):
-    files = []
-    for (dirpath, _, filenames) in os.walk(path):
-        for fname in filenames:
-            files.append(join(dirpath, fname))
-
-
-def parse_path(path, target_path, yr_limit=None, tag=None):
+def parse_path(path, target_path, yr_limit=None, tag=None, dryrun=False):
     global fcount
-    print("--organizing path=" + path + " ;target_path=" +
+    global files_copied
+    global files_no_metadata
+
+    log.info("--organizing path=" + path + " ;target_path=" +
           target_path + ' ;yr_limit=' + str(yr_limit) + ' ;tag=' + tag)
 
-    # if yr_limit:
-    #     target_path = join(target_path, str(yr_limit.year))
     if not os.path.exists(target_path):
         os.makedirs(target_path, exist_ok=True)
 
@@ -58,61 +38,69 @@ def parse_path(path, target_path, yr_limit=None, tag=None):
         for fname in filenames:
             src_file = join(dirpath, fname)
 
-            print(src_file)
+            log.info(src_file)
             try: 
-                get_metadata(src_file)
+                target_dt = metadata.get_create_date(src_file)
+                log.info(str(target_dt))
             except Exception as ex:
-                print("exception {} {}".format(ex, src_file))                
-            # parse filename, separator _;
-            target_dt = None
-            try:
-                target_dt = get_create_timestamp(src_file)
-            except Exception as ex:
-                print("exception {} {}".format(ex, src_file))
-                continue
+                log.info("exception {} {}".format(ex, src_file))
+                break   
 
-            # if yr_limit:
-            #     if str(target_dt.year) != yr_limit:
-            #         continue
-
-            # target_dir = join(target_path, target_dt.isoformat())
-            # # and not os.path.exists(target_dir):
-            # if not os.path.exists(target_dir):
-            #     os.makedirs(target_dir, exist_ok=True)
-
-            # checkFile = join(target_dir, os.path.basename(src_file))
-            # # print("check file: " + checkFile)
-
-            # if tag:
-            #     full_target_path = join(
-            #         target_dir, tag + '_' + os.path.basename(src_file))
-            # else:
-            #     full_target_path = join(
-            #         target_dir, os.path.basename(src_file))
+            dryrun_info = ""
+            if dryrun:
+                dryrun_info = "exec dryrun:"
 
             fcount += 1
+            if target_dt:
+                if yr_limit:
+                    if str(target_dt.year) != yr_limit:
+                        continue
+            
+                target_dir = join(target_path, target_dt.isoformat())
+            else:
+                target_dir = join(target_path, "unknown_date")
+                files_no_metadata =+ 1
+                list_unknown_date.append(src_file)
+                
+            # and not os.path.exists(target_dir):
+            if not os.path.exists(target_dir):
+                if not dryrun:
+                    os.makedirs(target_dir, exist_ok=True)
+
+            checkFile = join(target_dir, os.path.basename(src_file))
+            log.info("check file: " + checkFile)
+
+            if tag:
+                full_target_path = join(
+                    target_dir, tag + '_' + os.path.basename(src_file))
+            else:
+                full_target_path = join(
+                    target_dir, os.path.basename(src_file))
 
             # check if file already exists in target directory, skip
-            # if not os.path.exists(full_target_path):
-            #     fcount += 1
+            if not os.path.exists(full_target_path):
+                try:
+                    log.info(f"{dryrun_info} copying {src_file} to {full_target_path}")
+                    if not dryrun:
+                        shutil.copy2(src_file, full_target_path)                    
+                except Exception as ex:
+                    log.info("{dryrun_info} Error copying {src_file} Retrying..")
+                    if not dryrun:
+                        shutil.copy2(src_file, full_target_path)
+                files_copied += 1
+            else:
+                log.info(f"{dryrun_info} {src_file} already exists in {full_target_path}")
+            log.info("file count: {} ".format(fcount))
 
-            #     try:
-            #         print("copying " + src_file + " to " + full_target_path)
-            #         shutil.copy2(src_file, full_target_path)
-            #     except Exception as ex:
-            #         print("Error copying " + src_file + ".  Retrying..")
-            #         shutil.copy2(src_file, full_target_path)
-            # else:
-            #     print(src_file + " already exists in " + full_target_path)
-            print("file count: {} ".format(fcount))
-
-            if fcount >= max:
+            if max and fcount >= max:
                 break
 
-        if fcount >= max:
+        if max and fcount >= max:
             break
         # ************
         # main
+
+
 
 
 def get_tag(path):
@@ -124,8 +112,8 @@ def get_tag(path):
 
 fcount = 0
 
-yr_limit = '2020'
-target_path = f'/Volumes/pictures/2021/wdmycloud'
+yr_limit = '2021'
+target_path = f'/Volumes/pictures/{yr_limit}/mobile'
 
 # source_path = '/Volumes/library/mobile/agnes-x'
 # tag = get_tag(source_path)
@@ -146,8 +134,11 @@ tag = 'erwyn6s' #get_tag(source_path)
 parse_path(source_path,
            target_path=target_path,
            yr_limit=yr_limit,
-           tag=tag)
+           tag=tag,
+           dryrun=False)
 
-print("copied {} files".format(fcount))
+log.info(f"Files read: {fcount}")
+log.info(f"Files copied: {files_copied}")
+log.info(f"Unknown date list: {list_unknown_date}")
 
-print("end")
+log.info("end")
