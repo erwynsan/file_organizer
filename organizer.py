@@ -6,16 +6,6 @@ import sys
 
 from os.path import isfile, join
 
-logfile = "./log/app.log"
-logging.basicConfig(
-    format="[%(asctime)s] %(levelname)-8s %(name)-12s %(message)s",
-    level=logging.INFO,
-    handlers=[
-        logging.FileHandler(logfile, mode="w+"),
-        logging.StreamHandler(sys.stdout),
-    ],
-)
-
 log = logging.getLogger(__name__)
 
 
@@ -28,7 +18,8 @@ class Organizer:
     list_unknown_date = list()
     dryrun_info = ""
 
-    def __init__(self, dryrun) -> None:
+    def __init__(self, dryrun, max_cnt=None) -> None:
+        self.max_cnt = max_cnt
         self.dryrun = dryrun
         if self.dryrun:
             self.dryrun_info = "exec dryrun:"
@@ -117,36 +108,3 @@ class Organizer:
         # end of for walk
 
     # end of parse
-
-
-yr_limit = "2021"
-target_path = f"/Volumes/pictures/{yr_limit}/mobile"
-
-# source_path = '/Volumes/library/mobile/agnes-x'
-# tag = get_tag(source_path)
-# parse_path(source_path,
-#            target_path=target_path,
-#            yr_limit=yr_limit,
-#            tag=tag)
-
-# source_path = '/Volumes/library/mobile/sofia'
-# tag = get_tag(source_path)
-# parse_path(source_path,
-#            target_path=target_path,
-#            yr_limit=yr_limit,
-#            tag=tag)
-
-
-organizer = Organizer(dryrun=False)
-organizer.parse_path(
-    source_path="/Volumes/mobile/erwyn6s Camera Roll Backup",
-    target_path=target_path,
-    yr_limit=yr_limit,
-    tag="erwyn6s",
-)
-
-log.info(f"Files read: {organizer.fcount}")
-log.info(f"Files copied: {organizer.files_copied}")
-log.info(f"Unknown date list: {organizer.list_unknown_date}")
-
-log.info("end")

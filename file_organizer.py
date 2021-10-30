@@ -1,163 +1,58 @@
-from filecmp import dircmp
-import os
-import shutil
+import argparse
 import logging
-import metadata
+from organizer import Organizer
 import sys
 
-from os.path import isfile, join
-
-max = 10
-files_copied = 0
-files_no_metadata = 0
-list_unknown_date = list()
-
-logfile = "./app.log"
-logging.basicConfig(
-    format="[%(asctime)s] %(levelname)-8s %(name)-12s %(message)s",
-    level=logging.INFO,
-    handlers=[
-        logging.FileHandler(logfile, mode="w+"),
-        logging.StreamHandler(sys.stdout),
-    ],
-)
 
 log = logging.getLogger(__name__)
 
 
-def rollback_file(full_target_path):
-    # exception encountered, delete the target file since it might be corrupted
-    if os.path.exists(full_target_path):
-        os.remove(full_target_path)
-        log.info(f"File ({full_target_path}) deleted.")
-    else:
-        log.info(f"The file ({full_target_path}) does not exist")
-
-
-def parse_path(path, target_path, yr_limit=None, tag=None, dryrun=False):
-    global fcount
-    global files_copied
-    global files_no_metadata
-
-    log.info(
-        "--organizing path="
-        + path
-        + " ;target_path="
-        + target_path
-        + " ;yr_limit="
-        + str(yr_limit)
-        + " ;tag="
-        + tag
+def setup_logger(is_debug=None):
+    logfile = "./log/app.log"
+    log_level = logging.INFO
+    if is_debug:
+        log_level = logging.DEBUG
+    logging.basicConfig(
+        format="[%(asctime)s] %(levelname)-8s %(name)-12s %(message)s",
+        level=log_level,
+        handlers=[
+            logging.FileHandler(logfile, mode="w+"),
+            logging.StreamHandler(sys.stdout),
+        ],
     )
 
-    if not os.path.exists(target_path):
-        os.makedirs(target_path, exist_ok=True)
 
-    dryrun_info = ""
-    if dryrun:
-        dryrun_info = "exec dryrun:"
-
-    for (dirpath, _, filenames) in os.walk(path):
-        for fname in filenames:
-            src_file = join(dirpath, fname)
-            log.info(src_file)
-            try:
-                target_dt = metadata.get_create_date(src_file)
-                log.info(f"Created date: {str(target_dt)}")
-            except Exception as ex:
-                log.error("Unable to get metadata {} {}".format(ex, src_file))
-                raise ex
-
-            fcount += 1
-            if target_dt:
-                if yr_limit:
-                    if str(target_dt.year) != yr_limit:
-                        continue
-
-                target_dir = join(target_path, target_dt.isoformat())
-            else:
-                target_dir = join(target_path, "unknown_date")
-                files_no_metadata = +1
-                list_unknown_date.append(src_file)
-
-            # and not os.path.exists(target_dir):
-            if not os.path.exists(target_dir):
-                if not dryrun:
-                    os.makedirs(target_dir, exist_ok=True)
-
-            checkFile = join(target_dir, os.path.basename(src_file))
-            log.info("check file: " + checkFile)
-
-            if tag:
-                full_target_path = join(
-                    target_dir, tag + "_" + os.path.basename(src_file)
-                )
-            else:
-                full_target_path = join(target_dir, os.path.basename(src_file))
-
-            # check if file already exists in target directory, skip
-            if not os.path.exists(full_target_path):
-                try:
-                    log.info(f"{dryrun_info} copying {src_file} to {full_target_path}")
-                    if not dryrun:
-                        shutil.copy2(src_file, full_target_path)
-                    files_copied += 1
-                except Exception as ex:
-                    log.error(
-                        f"Error copying {src_file} to {full_target_path}. Error message: {ex}"
-                    )
-                    rollback_file(full_target_path)
-                    raise ex
-            else:
-                log.info(
-                    f"{dryrun_info} {src_file} already exists in {full_target_path}"
-                )
-            log.info("file count: {} ".format(fcount))
-
-            if max and fcount >= max:
-                break
-
-        if max and fcount >= max:
-            break
-        # ************
-        # main
+def get_args():
+    arg_parser = argparse.ArgumentParser()
+    arg_parser.add_argument("--debug", action="store_true", help="debug mode")
+    arg_parser.add_argument("-d", "--dryrun", action="store_true", help="dry run mode")
+    arg_parser.add_argument(
+        "-m", "--max_count", type=int, help="maximum file count", default=None
+    )
+    return arg_parser.parse_args()
 
 
-def get_tag(path):
-    if "mobile" in path:
-        return path.split("/")[-1]
-    else:
-        return None
+args = get_args()
+setup_logger(args.debug)
 
-
-fcount = 0
+log.info(f"dryrun: {args.dryrun}")
+log.info(f"max_count: {args.max_count}")
+log.info(f"debug: {args.debug}")
 
 yr_limit = "2021"
-target_path = f"/Volumes/pictures/{yr_limit}/mobile"
 
+organizer = Organizer(dryrun=args.dryrun, max_cnt=args.max_count)
 
-# source_path = '/Volumes/library/mobile/agnes-x'
-# tag = get_tag(source_path)
-# parse_path(source_path,
-#            target_path=target_path,
-#            yr_limit=yr_limit,
-#            tag=tag)
-
-# source_path = '/Volumes/library/mobile/sofia'
-# tag = get_tag(source_path)
-# parse_path(source_path,
-#            target_path=target_path,
-#            yr_limit=yr_limit,
-#            tag=tag)
-
-source_path = "/Volumes/mobile/erwyn6s Camera Roll Backup"
-tag = "erwyn6s"  # get_tag(source_path)
-parse_path(
-    source_path, target_path=target_path, yr_limit=yr_limit, tag=tag, dryrun=False
+organizer.parse_path(
+    source_path="/Volumes/mobile/erwyn6s Camera Roll Backup",
+    target_path=f"/Volumes/pictures/{yr_limit}/mobile",
+    yr_limit=yr_limit,
+    tag="erwyn6s",
 )
 
-log.info(f"Files read: {fcount}")
-log.info(f"Files copied: {files_copied}")
-log.info(f"Unknown date list: {list_unknown_date}")
+
+log.info(f"Files read: {organizer.fcount}")
+log.info(f"Files copied: {organizer.files_copied}")
+log.info(f"Unknown date list: {organizer.list_unknown_date}")
 
 log.info("end")
