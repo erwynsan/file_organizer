@@ -14,6 +14,7 @@ pillow_heif = "*"
 piexif = "*"
 tinytag = "*"
 PyExifTool = "*"
+black = "==21.9b0"
 requests = {git = "https://github.com/requests/requests.git", editable = true}
 
 [requires]

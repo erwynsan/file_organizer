@@ -7,61 +7,79 @@ import sys
 
 from os.path import isfile, join
 
-max=10
+max = 10
 files_copied = 0
 files_no_metadata = 0
 list_unknown_date = list()
 
-logfile='./app.log'
+logfile = "./app.log"
 logging.basicConfig(
-    format='[%(asctime)s] %(levelname)-8s %(name)-12s %(message)s', 
-    level=logging.DEBUG,
+    format="[%(asctime)s] %(levelname)-8s %(name)-12s %(message)s",
+    level=logging.INFO,
     handlers=[
-        logging.FileHandler(logfile),
+        logging.FileHandler(logfile, mode="w+"),
         logging.StreamHandler(sys.stdout),
-    ])
+    ],
+)
 
 log = logging.getLogger(__name__)
+
+
+def rollback_file(full_target_path):
+    # exception encountered, delete the target file since it might be corrupted
+    if os.path.exists(full_target_path):
+        os.remove(full_target_path)
+        log.info(f"File ({full_target_path}) deleted.")
+    else:
+        log.info(f"The file ({full_target_path}) does not exist")
+
 
 def parse_path(path, target_path, yr_limit=None, tag=None, dryrun=False):
     global fcount
     global files_copied
     global files_no_metadata
 
-    log.info("--organizing path=" + path + " ;target_path=" +
-          target_path + ' ;yr_limit=' + str(yr_limit) + ' ;tag=' + tag)
+    log.info(
+        "--organizing path="
+        + path
+        + " ;target_path="
+        + target_path
+        + " ;yr_limit="
+        + str(yr_limit)
+        + " ;tag="
+        + tag
+    )
 
     if not os.path.exists(target_path):
         os.makedirs(target_path, exist_ok=True)
 
+    dryrun_info = ""
+    if dryrun:
+        dryrun_info = "exec dryrun:"
+
     for (dirpath, _, filenames) in os.walk(path):
         for fname in filenames:
             src_file = join(dirpath, fname)
-
             log.info(src_file)
-            try: 
+            try:
                 target_dt = metadata.get_create_date(src_file)
-                log.info(str(target_dt))
+                log.info(f"Created date: {str(target_dt)}")
             except Exception as ex:
-                log.info("exception {} {}".format(ex, src_file))
-                break   
-
-            dryrun_info = ""
-            if dryrun:
-                dryrun_info = "exec dryrun:"
+                log.error("Unable to get metadata {} {}".format(ex, src_file))
+                raise ex
 
             fcount += 1
             if target_dt:
                 if yr_limit:
                     if str(target_dt.year) != yr_limit:
                         continue
-            
+
                 target_dir = join(target_path, target_dt.isoformat())
             else:
                 target_dir = join(target_path, "unknown_date")
-                files_no_metadata =+ 1
+                files_no_metadata = +1
                 list_unknown_date.append(src_file)
-                
+
             # and not os.path.exists(target_dir):
             if not os.path.exists(target_dir):
                 if not dryrun:
@@ -72,24 +90,28 @@ def parse_path(path, target_path, yr_limit=None, tag=None, dryrun=False):
 
             if tag:
                 full_target_path = join(
-                    target_dir, tag + '_' + os.path.basename(src_file))
+                    target_dir, tag + "_" + os.path.basename(src_file)
+                )
             else:
-                full_target_path = join(
-                    target_dir, os.path.basename(src_file))
+                full_target_path = join(target_dir, os.path.basename(src_file))
 
             # check if file already exists in target directory, skip
             if not os.path.exists(full_target_path):
                 try:
                     log.info(f"{dryrun_info} copying {src_file} to {full_target_path}")
                     if not dryrun:
-                        shutil.copy2(src_file, full_target_path)                    
-                except Exception as ex:
-                    log.info("{dryrun_info} Error copying {src_file} Retrying..")
-                    if not dryrun:
                         shutil.copy2(src_file, full_target_path)
-                files_copied += 1
+                    files_copied += 1
+                except Exception as ex:
+                    log.error(
+                        f"Error copying {src_file} to {full_target_path}. Error message: {ex}"
+                    )
+                    rollback_file(full_target_path)
+                    raise ex
             else:
-                log.info(f"{dryrun_info} {src_file} already exists in {full_target_path}")
+                log.info(
+                    f"{dryrun_info} {src_file} already exists in {full_target_path}"
+                )
             log.info("file count: {} ".format(fcount))
 
             if max and fcount >= max:
@@ -101,19 +123,18 @@ def parse_path(path, target_path, yr_limit=None, tag=None, dryrun=False):
         # main
 
 
-
-
 def get_tag(path):
-    if 'mobile' in path:
-        return path.split('/')[-1]
+    if "mobile" in path:
+        return path.split("/")[-1]
     else:
         return None
 
 
 fcount = 0
 
-yr_limit = '2021'
-target_path = f'/Volumes/pictures/{yr_limit}/mobile'
+yr_limit = "2021"
+target_path = f"/Volumes/pictures/{yr_limit}/mobile"
+
 
 # source_path = '/Volumes/library/mobile/agnes-x'
 # tag = get_tag(source_path)
@@ -129,13 +150,11 @@ target_path = f'/Volumes/pictures/{yr_limit}/mobile'
 #            yr_limit=yr_limit,
 #            tag=tag)
 
-source_path = '/Volumes/mobile/erwyn6s Camera Roll Backup'
-tag = 'erwyn6s' #get_tag(source_path)
-parse_path(source_path,
-           target_path=target_path,
-           yr_limit=yr_limit,
-           tag=tag,
-           dryrun=False)
+source_path = "/Volumes/mobile/erwyn6s Camera Roll Backup"
+tag = "erwyn6s"  # get_tag(source_path)
+parse_path(
+    source_path, target_path=target_path, yr_limit=yr_limit, tag=tag, dryrun=False
+)
 
 log.info(f"Files read: {fcount}")
 log.info(f"Files copied: {files_copied}")
