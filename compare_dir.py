@@ -40,8 +40,9 @@ def compare_file_size(file, msg_info, left_fname, right_fname):
 
 
 def print_diff_files(filename, dcmp, remove_file=None):
-    print("========comparing: left: {} == right: {} ======".format(
-        dcmp.left, dcmp.right))
+    print(
+        "========comparing: left: {} == right: {} ======".format(dcmp.left, dcmp.right)
+    )
     print("remove_file:{}".format(remove_file is True))
 
     file = open(filename, "w")
@@ -56,7 +57,9 @@ def print_diff_files(filename, dcmp, remove_file=None):
         #     msg = f"Delete: {fname};LEFT:{left_fname_stat.st_size};RIGHT:{left_fname_stat.st_size} \n"
         #     if remove_file is True:
         #         os.remove(right_fname)
-        if left_fname_stat.st_size == right_fname_stat.st_size and get_strdate(left_fname_stat.st_ctime) == get_strdate(right_fname_stat.st_ctime):
+        if left_fname_stat.st_size == right_fname_stat.st_size and get_strdate(
+            left_fname_stat.st_ctime
+        ) == get_strdate(right_fname_stat.st_ctime):
             msg = f"SameFile-Delete:{fname};LEFT:{left_fname_stat.st_size};RIGHT:{right_fname_stat.st_size} \n"
             if remove_file is True:
                 os.remove(right_fname)
@@ -91,7 +94,7 @@ def print_diff_files(filename, dcmp, remove_file=None):
 
         elif "(" in fname:
             # get string before (  and the extension
-            fname = fname[:fname.index('(')]
+            fname = fname[: fname.index("(")]
             left_fname = join(dcmp.left, fname + file_ext)
             lower_left_fname = join(dcmp.left, fname + file_ext.lower())
             if os.path.exists(left_fname):
@@ -117,6 +120,5 @@ def print_diff_files(filename, dcmp, remove_file=None):
     file.close()
 
 
-dcmp = dircmp('/Volumes/library/mobile/agnes',
-              '/Volumes/library/mobile/erwynsan')
+dcmp = dircmp("/Volumes/library/mobile/agnes", "/Volumes/library/mobile/erwynsan")
 print_diff_files("compare_files.txt", dcmp, remove_file=False)
