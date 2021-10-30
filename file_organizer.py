@@ -24,6 +24,9 @@ def setup_logger(is_debug=None):
 
 def get_args():
     arg_parser = argparse.ArgumentParser()
+    arg_parser.add_argument("-a","--agnes", action="store_true", help="agnes")
+    arg_parser.add_argument("-e","--erwyn", action="store_true", help="erwyn")
+    arg_parser.add_argument("-s","--sofia", action="store_true", help="sofia")
     arg_parser.add_argument("--debug", action="store_true", help="debug mode")
     arg_parser.add_argument("-d", "--dryrun", action="store_true", help="dry run mode")
     arg_parser.add_argument(
@@ -43,12 +46,29 @@ yr_limit = "2021"
 
 organizer = Organizer(dryrun=args.dryrun, max_cnt=args.max_count)
 
-organizer.parse_path(
-    source_path="/Volumes/mobile/erwyn6s Camera Roll Backup",
-    target_path=f"/Volumes/pictures/{yr_limit}/mobile",
-    yr_limit=yr_limit,
-    tag="erwyn6s",
-)
+if args.erwyn:
+    organizer.parse_path(
+        source_path="/Volumes/mobile/erwyn6s Camera Roll Backup",
+        target_path=f"/Volumes/pictures/{yr_limit}/mobile",
+        yr_limit=yr_limit,
+        tag="erwyn6s",
+    )
+
+if args.agnes:
+    organizer.parse_path(
+        source_path="/Volumes/mobile/Agnes iphone 11 Camera Roll Backup",
+        target_path=f"/Volumes/pictures/{yr_limit}/mobile",
+        yr_limit=yr_limit,
+        tag="agnes11",
+    )
+
+if args.sofia:
+    organizer.parse_path(
+        source_path="/Volumes/mobile/Sofia's iPad Camera Roll Backup",
+        target_path=f"/Volumes/pictures/{yr_limit}/mobile",
+        yr_limit=yr_limit,
+        tag="sofia",
+    )
 
 
 log.info(f"Files read: {organizer.fcount}")

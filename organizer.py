@@ -66,10 +66,12 @@ class Organizer:
                 try:
                     target_dt = metadata.get_create_date(src_file)
                     log.info(f"Created date: {str(target_dt)}")
+                    if not target_dt:
+                        log.info(f"No create date.  Add to unknown list:{src_file}")
+                        self.files_no_metadata = +1
+                        self.list_unknown_date.append(src_file)
                 except Exception as ex:
                     log.error("Unable to get metadata {} {}".format(ex, src_file))
-                    self.files_no_metadata = +1
-                    self.list_unknown_date.append(src_file)
                     raise ex
 
                 self.fcount += 1
@@ -80,7 +82,7 @@ class Organizer:
 
                     target_dir = join(target_path, target_dt.isoformat())
                 else:
-                    target_dir = join(target_path, "unknown_date")
+                    target_dir = join(target_path, f"unknown_date/{tag}")
 
                 # and not os.path.exists(target_dir):
                 if not os.path.exists(target_dir):
