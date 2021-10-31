@@ -1,8 +1,8 @@
 import os
 import shutil
 import logging
-import metadata
-import sys
+import helpers.metadata as metadata
+from datetime import datetime
 
 from os.path import isfile, join
 
@@ -17,12 +17,18 @@ class Organizer:
     max_cnt = 10
     list_unknown_date = list()
     dryrun_info = ""
+    min_sync_date = None
 
-    def __init__(self, dryrun, max_cnt=None) -> None:
+    def __init__(self, dryrun, max_cnt=None, min_sync_date=None) -> None:
         self.max_cnt = max_cnt
         self.dryrun = dryrun
         if self.dryrun:
             self.dryrun_info = "exec dryrun:"
+        if min_sync_date:
+            try:
+                self.min_sync_date = datetime.strptime(min_sync_date, "%Y-%m-%d")
+            except:
+                pass
 
     def rollback_file(self, full_target_path):
         # exception encountered, delete the target file since it might be corrupted
@@ -51,6 +57,12 @@ class Organizer:
                 f"{self.dryrun_info} {src_file} already exists in {full_target_path}"
             )
 
+    def update_status(self):
+        if self.fcount % 2 == 0:
+            log.info(
+                f"--- : fcount:{self.fcount};files_copied:{self.files_copied};files_no_metadata:{self.files_no_metadata}"
+            )
+
     def parse_path(self, source_path, target_path, yr_limit=None, tag=None):
         log.info(
             f"--organizing source_path={source_path};target_path={target_path} ;yr_limit={str(yr_limit)};tag={tag}"
@@ -60,9 +72,33 @@ class Organizer:
             os.makedirs(target_path, exist_ok=True)
 
         for (dirpath, _, filenames) in os.walk(source_path):
+
+            # list_of_files = filter(
+            #     lambda x: os.path.isfile(os.path.join(dirpath, x)), os.listdir(dirpath)
+            # )
+            # Sort list of files based on last modification time in ascending order
+            filenames = sorted(
+                filenames,
+                key=lambda x: os.path.getctime(os.path.join(dirpath, x)),
+                reverse=True,
+            )
             for fname in filenames:
+                if self.max_cnt and self.fcount >= self.max_cnt:
+                    break
+                self.fcount += 1
+
                 src_file = join(dirpath, fname)
                 log.info(src_file)
+
+                # get file timestamp
+                if self.min_sync_date:
+                    src_file_date = datetime.fromtimestamp(
+                        metadata.get_file_stat(src_file).st_ctime
+                    )
+                    if src_file_date < self.min_sync_date:
+                        log.info(f"Too old to sync: {src_file}:{src_file_date}")
+                        break
+
                 try:
                     target_dt = metadata.get_create_date(src_file)
                     log.info(f"Created date: {str(target_dt)}")
@@ -74,10 +110,9 @@ class Organizer:
                     log.error("Unable to get metadata {} {}".format(ex, src_file))
                     raise ex
 
-                self.fcount += 1
                 if target_dt:
                     if yr_limit:
-                        if str(target_dt.year) != yr_limit:
+                        if str(target_dt.year) < yr_limit:
                             continue
 
                     target_dir = join(target_path, target_dt.isoformat())
@@ -102,9 +137,7 @@ class Organizer:
                 self.copy_file(src_file, full_target_path)
                 log.info("file count: {} ".format(self.fcount))
 
-                if self.max_cnt and self.fcount >= self.max_cnt:
-                    break
-
+                self.update_status()
             if self.max_cnt and self.fcount >= self.max_cnt:
                 break
         # end of for walk

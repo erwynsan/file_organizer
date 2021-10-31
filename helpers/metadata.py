@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime
 import exiftool
 import logging
 import json
@@ -16,23 +16,35 @@ def get_create_date(filename: str):
 
         if file_ext in [".MOV", ".MP4"]:
             create_date = metadata.get("QuickTime:TrackCreateDate")
-        
-        if not create_date:        
+
+        if not create_date:
             create_date = metadata.get("EXIF:DateTimeOriginal")
         if not create_date:
             create_date = metadata.get("EXIF:CreateDate")
         if not create_date:
             create_date = metadata.get("ICC_Profile:ProfileDateTime")
-            log.info(f"No DateTimeOriginal, using ProfileDateTime instead {create_date}")
+            log.info(
+                f"No DateTimeOriginal, using ProfileDateTime instead {create_date}"
+            )
         if not create_date:
             create_date = metadata.get("EXIF:ModifyDate")
             log.info(f"No CreateDate, using ModifyDate instead {create_date}")
         # if create date is None, use a default date/default folder "unknown"
         try:
-            date_obj = datetime.datetime.strptime(create_date, "%Y:%m:%d %H:%M:%S")
+            date_obj = datetime.strptime(create_date, "%Y:%m:%d %H:%M:%S")
             return date_obj.date()
         except Exception as ex:
             log.error(
                 f"{filename}: Create date metadata not found: {json.dumps(metadata)}"
             )
             return None
+
+
+def get_file_stat(filename):
+    stat = os.stat(filename)
+    return stat
+
+
+def get_create_timestamp(filename):
+    t = os.path.getctime(filename)
+    return datetime.fromtimestamp(t).date().strftime("%Y-%m-%d")
